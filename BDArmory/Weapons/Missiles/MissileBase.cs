@@ -215,6 +215,13 @@ namespace BDArmory.Weapons.Missiles
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_CruisePredictionTime"), UI_FloatRange(minValue = 1f, maxValue = 15f, stepIncrement = 1f, scene = UI_Scene.Editor, affectSymCounterparts = UI_Scene.All)]//Cruise prediction time
         public float CruisePredictionTime = 5;
 
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "Ascend to altitude before engaging target"),
+            UI_Toggle(disabledText = "#LOC_BDArmory_false", enabledText = "#LOC_BDArmory_true", scene = UI_Scene.All, affectSymCounterparts = UI_Scene.All)]
+        public bool UseNewAscentMode = false;
+
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "Minimum ascent prior to guidance"), UI_FloatRange(minValue = 0f, maxValue = 35000f, stepIncrement = 500f, scene = UI_Scene.Editor, affectSymCounterparts = UI_Scene.All)]//Minimum ascent before guidance kicks in
+        public float MinimumAscentBeforePursuit = 0;
+
         [KSPField]
         public float missileRadarCrossSection = RadarUtils.RCS_MISSILES;            // radar cross section of this missile for detection purposes
 
