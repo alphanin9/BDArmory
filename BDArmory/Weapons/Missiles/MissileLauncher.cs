@@ -673,6 +673,7 @@ namespace BDArmory.Weapons.Missiles
                 Fields["detonationTime"].guiActive = false;
                 Fields["detonationTime"].guiActiveEditor = false;
             }
+
             if (GuidanceMode != GuidanceModes.Cruise)
             {
                 CruiseAltitudeRange();
@@ -741,7 +742,6 @@ namespace BDArmory.Weapons.Missiles
                 Fields["terminalGuidanceShouldActivate"].guiActive = false;
                 Fields["terminalGuidanceShouldActivate"].guiActiveEditor = false;
             }
-
 
             // fill lockedSensorFOVBias with default values if not set by part config:
             if ((TargetingMode == TargetingModes.Heat || TargetingModeTerminal == TargetingModes.Heat) && heatThreshold > 0 && lockedSensorFOVBias.minTime == float.MaxValue)
@@ -2143,6 +2143,21 @@ namespace BDArmory.Weapons.Missiles
                 else // AAM Lead
                     aamTarget = MissileGuidance.GetAirToAirTarget(TargetPosition, TargetVelocity, TargetAcceleration, vessel, out timeToImpact, optimumAirspeed);
 
+                if ( UseNewAscentMode && MissileAscentState == AscentStates.Idle ) {
+                    MissileAscentState = AscentStates.Ascending;
+                }
+
+                if ( MissileAscentState == AscentStates.Ascending ) {
+                    Vector3 upDirection = VectorUtils.GetUpDirection(vessel.CoM);
+                    Vector3 planarToTarget = Vector3.ProjectOnPlane(TargetPosition - vessel.CoM, upDirection).normalized;
+
+                    aamTarget = vessel.CoM + ( planarToTarget + upDirection.normalized ) * 10f;
+
+                    if ( MissileGuidance.GetRadarAltitude ( vessel ) > MinimumAscentBeforePursuit ) {
+                        MissileAscentState = AscentStates.Default;
+                        Debug.Log("[BDArmory-Ascent] Ascended, Ap " + vessel.orbit.ApA.ToString() + " radar alt " + MissileGuidance.GetRadarAltitude(vessel).ToString());
+                    }
+                }
 
                 if (Vector3.Angle(aamTarget - transform.position, transform.forward) > maxOffBoresight * 0.75f)
                 {
