@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Tuple, Union
 
-VERSION = "1.18.0"
+VERSION = "1.19.0"
 
 parser = argparse.ArgumentParser(description="Tournament log parser", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('tournament', type=str, nargs='*', help="Tournament folder to parse.")
@@ -292,6 +292,7 @@ for tournamentNumber, tournamentDir in enumerate(tournamentDirs):
             'ID': tournamentMetadata.get('ID', 'unknown'),
             'duration': [ts.isoformat() for ts in tournamentMetadata.get('duration', (datetime.now(), datetime.now()))],
             'rounds': tournamentMetadata.get('rounds', -1),
+            'score weights': {f: w for f, w in zip(score_fields, weights)},
         },
         'craft': {
             craft: {

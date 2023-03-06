@@ -372,7 +372,6 @@ namespace BDArmory.Weapons.Missiles
                 weaponClass = WeaponClasses.Missile;
             }
         }
-
         public override void OnStart(StartState state)
         {
             //base.OnStart(state);
@@ -406,7 +405,10 @@ namespace BDArmory.Weapons.Missiles
             if (reloadableRail == null && hasAmmo)
             {
                 reloadableRail = part.FindModuleImplementing<ModuleMissileRearm>();
-                if (reloadableRail == null) hasAmmo = false;
+                if (reloadableRail == null)
+                {
+                    hasAmmo = false;
+                }
             }
 
             multiLauncher = part.FindModuleImplementing<MultiMissileLauncher>();
@@ -1033,8 +1035,7 @@ namespace BDArmory.Weapons.Missiles
                 ml.reloadableRail.MissileName = multiLauncher.subMunitionName;
                 ml.reloadableRail.UpdateMissileValues();
             }
-
-            if (!BDArmorySettings.INFINITE_ORDINANCE) reloadableRail.ammoCount--;
+            GetMissileCount();
             if (reloadableRail.ammoCount > 0 || BDArmorySettings.INFINITE_ORDINANCE)
             {
                 if (!(reloadRoutine != null))

@@ -503,7 +503,7 @@ namespace BDArmory.Utils
                 }
             }
         }
-        public static bool CalculateExplosiveArmorDamage(Part hitPart, double BlastPressure, string sourcevessel, RaycastHit hit, ExplosionSourceType explosionSource, float radius)
+        public static bool CalculateExplosiveArmorDamage(Part hitPart, double BlastPressure, double distance, string sourcevessel, RaycastHit hit, ExplosionSourceType explosionSource, float radius)
         {
             /// <summary>
             /// Calculates if shockwave from detonation is stopped by armor, and if not, how much damage is done to armor and part in case of armor rupture or spalling
@@ -513,6 +513,7 @@ namespace BDArmory.Utils
             if (BDArmorySettings.PAINTBALL_MODE) return true; //don't damage armor if paintball mode
             float thickness = (float)hitPart.GetArmorThickness();
             if (thickness <= 0) return false; //no armor to stop explosion
+            float armorArea = -1;
             float spallArea;  //using this as a hack for affected srf. area, convert m2 to cm2
             float spallMass;
             float damage;
@@ -521,13 +522,17 @@ namespace BDArmory.Utils
             {
                 if (IsArmorPart(hitPart))
                 {
-                    spallArea = Mathf.Min(hitPart.Modules.GetModule<HitpointTracker>().armorVolume, radius * radius) * 10000; //clamp based on max size of explosion
+                    armorArea = hitPart.Modules.GetModule<HitpointTracker>().armorVolume * 10000;
+                    spallArea = Mathf.Min(armorArea, radius * radius * 2500); //clamp based on max size of explosion
                 }
                 else
                 {
                     if (Armor.ArmorTypeNum == 1) return false;//ArmorType "None"; no armor to block/reduce blast, take full damage
-                    spallArea = Mathf.Min((!double.IsNaN(hitPart.radiativeArea) ? (float)hitPart.radiativeArea : hitPart.GetArea() / 3), radius * radius) * 10000;
+                    armorArea = !double.IsNaN(hitPart.radiativeArea) ? (float)hitPart.radiativeArea : hitPart.GetArea() * 10000;
+                    spallArea = Mathf.Min(armorArea / 3, radius * radius * 2500);
                 }
+                //have this scaled by blowthrough factor? afterall a very powerful blast right next to the plate is more likely to punch a localzied hole rather than generally push the whole plate, no?
+                if (distance < radius / 3) spallArea /= 4;
                 if (BDArmorySettings.DEBUG_ARMOR && double.IsNaN(hitPart.radiativeArea))
                 {
                     Debug.Log("[BDArmory.ProjectileUtils{CalculateExplosiveArmorDamage}]: radiative area of part " + hitPart + " was NaN, using approximate area " + spallArea + " instead.");
@@ -536,7 +541,6 @@ namespace BDArmory.Utils
                 float hardness = Armor.Hardness;
                 float Strength = Armor.Strength;
                 float Density = Armor.Density;
-                if (Armor.ArmorPanel) spallArea = Armor.armorVolume * 10000;
 
                 float ArmorTolerance = (((Strength * (1 + ductility)) + Density) / 1000) * thickness;
 
@@ -575,9 +579,8 @@ namespace BDArmory.Utils
                     {
                         spallArea *= ((1 - ductility) * blowthroughFactor);
 
-                        spallMass = spallArea * ((thickness / 10) * (blowthroughFactor - 0.66f)) * (Density / 1000000); //lose  up to 1/3rd thickness from spalling, based on severity of blast
-                        spallArea *= (thickness / 10) * (blowthroughFactor - 0.66f);
-
+                        spallMass = Mathf.Min(spallArea, armorArea) * ((thickness / 10) * (blowthroughFactor - 0.66f)) * (Density / 1000000); //lose  up to 1/3rd thickness from spalling, based on severity of blast
+                        if (spallArea > armorArea) spallArea = armorArea;
                         if (BDArmorySettings.DEBUG_ARMOR)
                         {
                             Debug.Log("[BDArmory.ProjectileUtils{CalculateExplosiveArmorDamage}]: Explosive Armor spalling" + hitPart.name + ", " + hitPart.vessel.GetName() + "! Size: " + spallArea + "; mass: " + spallMass + "kg");
@@ -587,12 +590,13 @@ namespace BDArmory.Utils
                             damage = hitPart.AddBallisticDamage(spallMass / 1000, spallArea, 1, blowthroughFactor, 1, 422.75f, explosionSource);
                             ApplyScore(hitPart, sourcevessel, 0, damage, "Spalling", explosionSource);
                         }
-                        //else soft enough to not spall. Armor has suffered some deformation, though, weakening it.
-                        hitPart.ReduceArmor(spallArea); //cm3
+                        //else soft enough to not spall. Armor has suffered some deformation, though, weakening it.=
                         if (BDArmorySettings.BATTLEDAMAGE)
                         {
                             BattleDamageHandler.CheckDamageFX(hitPart, spallArea, blowthroughFactor, false, false, sourcevessel, hit);
                         }
+                        spallArea *= (thickness / 10) * (blowthroughFactor - 0.66f);
+                        hitPart.ReduceArmor(spallArea); //cm3
                         return true;
                     }
                 }
@@ -625,6 +629,7 @@ namespace BDArmory.Utils
                         else //0.05-0.19 ductility - harder steels, etc
                         {
                             spallArea *= ((1.2f - ductility) * blowthroughFactor * (thickness / 10));
+                            if (spallArea > armorArea) spallArea = armorArea;
                             spallMass = spallArea * (Density / 1000000);
                             hitPart.ReduceArmor(spallArea); //cm3
                             damage = hitPart.AddBallisticDamage(spallMass / 1000, spallArea / 100000, 1, blowthroughFactor, 1, 422.75f, explosionSource);
@@ -678,6 +683,7 @@ namespace BDArmory.Utils
                             else //0.05-0.19 ductility - harder steels, etc
                             {
                                 spallArea *= ((1.2f - ductility) * blowthroughFactor) * ((thickness / 10) * (blowthroughFactor - 0.66f));
+                                if (spallArea > armorArea) spallArea = armorArea;
                                 if (hardness > 500)
                                 {
                                     //blowtrhoughFactor - 1 * 100

@@ -41,6 +41,7 @@ namespace BDArmory.Settings
         [BDAPersistentSettingsField] public static bool INFINITE_AMMO = false;              //infinite Bullets/rockets/laserpower
         [BDAPersistentSettingsField] public static bool INFINITE_ORDINANCE = false;         //infinite missiles/bombs (on ordinance w/ Reload Module)
         [BDAPersistentSettingsField] public static bool INFINITE_FUEL = false;              //Infinite propellant
+        [BDAPersistentSettingsField] public static bool INFINITE_EC = false;                          //Infinite electric charge
         [BDAPersistentSettingsField] public static bool BULLET_HITS = true;
         [BDAPersistentSettingsField] public static bool EJECT_SHELLS = true;
         [BDAPersistentSettingsField] public static bool VESSEL_RELATIVE_BULLET_CHECKS = false;
@@ -108,6 +109,8 @@ namespace BDArmory.Settings
         [BDAPersistentSettingsField] public static bool COMPETITION_ALTITUDE__LIMIT_ASL = false;       // Does Killer GM use ASL or AGL for latitide ceiling/floor?
         [BDAPersistentSettingsField] public static float COMPETITION_NONCOMPETITOR_REMOVAL_DELAY = 30; // Competition non-competitor removal delay in seconds.
         [BDAPersistentSettingsField] public static float COMPETITION_DISTANCE = 1000;                  // Competition distance.
+        [BDAPersistentSettingsField] public static float COMPETITION_INTRA_TEAM_SEPARATION_BASE = 800; // Intra-team separation (base value).
+        [BDAPersistentSettingsField] public static float COMPETITION_INTRA_TEAM_SEPARATION_PER_MEMBER = 100; // Intra-team separation (per member value).
         [BDAPersistentSettingsField] public static int COMPETITION_START_NOW_AFTER = 11;               // Competition auto-start now.
         [BDAPersistentSettingsField] public static bool COMPETITION_START_DESPITE_FAILURES = false;    // Start competition despite failures.
         [BDAPersistentSettingsField] public static float DEBRIS_CLEANUP_DELAY = 15f;                   // Clean up debris after 30s.
@@ -257,7 +260,7 @@ namespace BDArmory.Settings
         [BDAPersistentSettingsField] public static Vector2d VESSEL_SPAWN_GEOCOORDS = new Vector2d(0.05096, -74.8016); // Spawning coordinates on a planetary body; Lat, Lon
         [BDAPersistentSettingsField] public static int VESSEL_SPAWN_WORLDINDEX = 1;                // Spawning planetary body: world index
         [BDAPersistentSettingsField] public static float VESSEL_SPAWN_ALTITUDE = 5f;               // Spawning altitude above the surface.
-        public static float VESSEL_SPAWN_ALTITUDE_ => RUNWAY_PROJECT_ROUND == 33 ? 10 : RUNWAY_PROJECT_ROUND == 53 ? FlightGlobals.currentMainBody.atmosphere ? (float)(FlightGlobals.currentMainBody.atmosphereDepth + (FlightGlobals.currentMainBody.atmosphereDepth / 10)) : 50000 : VESSEL_SPAWN_ALTITUDE; // Getter for handling the various RWP cases.
+        public static float VESSEL_SPAWN_ALTITUDE_ => !RUNWAY_PROJECT ? VESSEL_SPAWN_ALTITUDE : RUNWAY_PROJECT_ROUND == 33 ? 10 : RUNWAY_PROJECT_ROUND == 53 ? FlightGlobals.currentMainBody.atmosphere ? (float)(FlightGlobals.currentMainBody.atmosphereDepth + (FlightGlobals.currentMainBody.atmosphereDepth / 10)) : 50000 : VESSEL_SPAWN_ALTITUDE; // Getter for handling the various RWP cases.
         [BDAPersistentSettingsField] public static float VESSEL_SPAWN_DISTANCE_FACTOR = 20f;       // Scale factor for the size of the spawning circle.
         [BDAPersistentSettingsField] public static float VESSEL_SPAWN_DISTANCE = 10f;              // Radius of the size of the spawning circle.
         [BDAPersistentSettingsField] public static bool VESSEL_SPAWN_DISTANCE_TOGGLE = false;      // Toggle between scaling factor and absolute distance.
@@ -285,6 +288,7 @@ namespace BDArmory.Settings
         [BDAPersistentSettingsField] public static float VESSEL_MOVER_MIN_LOWER_SPEED = 1f;        // Minimum speed to lower vessels.
         [BDAPersistentSettingsField] public static bool VESSEL_MOVER_LOWER_FAST = true;            // Skip lowering from high altitude.
         [BDAPersistentSettingsField] public static bool VESSEL_MOVER_BELOW_WATER = false;          // Lower below water (on planets that have water).
+        [BDAPersistentSettingsField] public static bool VESSEL_MOVER_DONT_WORRY_ABOUT_COLLISIONS = false; // Don't prevent collisions.
 
         // Waypoints
         [BDAPersistentSettingsField] public static float WAYPOINTS_ALTITUDE = 50f;                // Altitude above ground of the waypoints.

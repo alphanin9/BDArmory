@@ -46,6 +46,11 @@ namespace BDArmory.Weapons.Missiles
             return missileName;
         }
 
+        public float GetEngageRange()
+        {
+            return GetEngagementRangeMax();
+        }
+
         public string missileName { get; set; } = "";
 
         [KSPField]
@@ -401,7 +406,8 @@ namespace BDArmory.Weapons.Missiles
         public override void OnAwake()
         {
             base.OnAwake();
-            if (reloadableRail == null)
+            /*
+            if (reloadableRail == null) //getting called before ModuleMissileRearm getting initialized and returning false
             {
                 reloadableRail = GetPart().FindModuleImplementing<ModuleMissileRearm>();
                 if (reloadableRail == null)
@@ -409,6 +415,7 @@ namespace BDArmory.Weapons.Missiles
                     hasAmmo = false;
                 }
             }
+            */
         }
 
         public void GetMissileCount() // could stick this in GetSublabel, but that gets called every frame by BDArmorySetup?
@@ -422,13 +429,14 @@ namespace BDArmory.Weapons.Missiles
                 {
                     if (craftPart.Current is null) continue;
                     if (craftPart.Current.GetPartName() != missilePartName) continue;
+                    if (craftPart.Current.engageRangeMax != engageRangeMax) continue;
                     missilecount += craftPart.Current.AmmoCount;
                 }
         }
 
         public string GetSubLabel()
         {
-            return Sublabel = $"Guidance: {Enum.GetName(typeof(TargetingModes), TargetingMode)}; Remaining: {missilecount}"; 
+            return Sublabel = $"Guidance: {Enum.GetName(typeof(TargetingModes), TargetingMode)}; Max Range: {Mathf.Round(engageRangeMax / 100) / 10} km; Remaining: {missilecount}";
         }
 
         public Part GetPart()

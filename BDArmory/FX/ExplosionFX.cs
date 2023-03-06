@@ -44,7 +44,7 @@ namespace BDArmory.FX
         public float apMod { get; set; }
         public float travelDistance { get; set; }
 
-        public Part hitpart { get; set; }
+        public Part projectileHitPart { get; set; }
         public float TimeIndex => Time.time - StartTime;
 
         private bool disabled = true;
@@ -259,7 +259,7 @@ namespace BDArmory.FX
                                 if (hitPart.vessel.GetName() == SourceVesselName) continue;  //avoid autohit;
                                 if (hitPart.mass > 0 && !explosionEventsPartsAdded.Contains(hitPart))
                                 {
-                                    var damaged = ProcessPartEvent(hitPart, sourceVesselName, explosionEventsPreProcessing, explosionEventsPartsAdded, true);
+                                    var damaged = ProcessPartEvent(hitPart, SChit.distance, SourceVesselName, explosionEventsPreProcessing, explosionEventsPartsAdded, true);
                                     // If the explosion derives from a missile explosion, count the parts damaged for missile hit scores.
                                     if (damaged && BDACompetitionMode.Instance)
                                     {
@@ -320,8 +320,8 @@ namespace BDArmory.FX
                             if (ProjectileUtils.IsIgnoredPart(partHit)) continue; // Ignore ignored parts.
                             if (ExplosivePart != null && partHit.name == ExplosivePart.name) continue; //don't fratricide fellow missiles/bombs in a launched salvo when the first detonates
                             if (partHit.mass > 0 && !explosionEventsPartsAdded.Contains(partHit))
-                            {
-                                var damaged = ProcessPartEvent(partHit, sourceVesselName, explosionEventsPreProcessing, explosionEventsPartsAdded);
+                            {   
+                                var damaged = ProcessPartEvent(partHit, Vector3.Distance(hitCollidersEnu.Current.ClosestPoint(Position), Position), sourceVesselName, explosionEventsPreProcessing, explosionEventsPartsAdded);
                                 // If the explosion derives from a missile explosion, count the parts damaged for missile hit scores.
                                 if (damaged && BDACompetitionMode.Instance)
                                 {
@@ -451,11 +451,11 @@ namespace BDArmory.FX
             }
         }
 
-        private bool ProcessPartEvent(Part part, string sourceVesselName, List<BlastHitEvent> eventList, List<Part> partsAdded, bool angleOverride = false)
+        private bool ProcessPartEvent(Part part, float hitDist, string sourceVesselName, List<BlastHitEvent> eventList, List<Part> partsAdded, bool angleOverride = false)
         {
             RaycastHit hit;
-            float distance = 0;
-            if (IsInLineOfSight(part, ExplosivePart, out hit, out distance))
+            float distance;
+            if (IsInLineOfSight(part, ExplosivePart, hitDist, out hit, out distance))
             {
                 //if (IsAngleAllowed(Direction, hit))
                 //{
@@ -516,11 +516,10 @@ namespace BDArmory.FX
         /// <param name="distance">The distance of the hit</param>
         /// <param name="intermediateParts">Update the LoSIntermediateParts list</param>
         /// <returns></returns>
-        private bool IsInLineOfSight(Part part, Part explosivePart, out RaycastHit hit, out float distance, bool intermediateParts = true)
+        private bool IsInLineOfSight(Part part, Part explosivePart, float startDist, out RaycastHit hit, out float distance, bool intermediateParts = true)
         {
-            var partPosition = part.transform.position;
+            var partPosition = part.transform.position; //transition over to part.Collider.ClosestPoint(Position);? Test later
             Ray partRay = new Ray(Position, partPosition - Position);
-
             float range = blastRange > SCRange ? blastRange : SCRange;
 
             var hitCount = Physics.RaycastNonAlloc(partRay, lineOfSightHits, range, explosionLayerMask);
@@ -552,7 +551,13 @@ namespace BDArmory.FX
                 Part partHit = hit.collider.GetComponentInParent<Part>();
                 if (partHit == null) continue;
                 if (ProjectileUtils.IsIgnoredPart(partHit)) continue; // Ignore ignored parts.
-                distance = hit.distance;
+                //if (startDist > -100)
+                //{
+                if (partHit == projectileHitPart) distance = 0.05f; //HE bullet slamming into armor/penning and detonating inside part
+                else distance = Mathf.Max(startDist, 0.05f);
+                //}
+                //if (startDist < 0) distance = hit.distance;
+
                 if (partHit == part)
                 {
                     return true;
@@ -604,7 +609,7 @@ namespace BDArmory.FX
                             }
                             else
                             {
-                                if (((ExplosionSource == ExplosionSourceType.Bullet || ExplosionSource == ExplosionSourceType.Rocket) && (Caliber > RA.sensitivity && distance < 0.1f)) ||   //bullet/rocket hit
+                                if (((ExplosionSource == ExplosionSourceType.Bullet || ExplosionSource == ExplosionSourceType.Rocket) && (Caliber > RA.sensitivity && partHit == projectileHitPart)) ||   //bullet/rocket hit
                                     ((ExplosionSource == ExplosionSourceType.Missile || ExplosionSource == ExplosionSourceType.BattleDamage) && (distance < Power / 2))) //or close range detonation likely to trigger ERA
                                 {
                                     partArmour = 300 * RA.armorModifier;
@@ -618,7 +623,7 @@ namespace BDArmory.FX
             }
 
             hit = miss;
-            distance = 0;
+            distance = float.PositiveInfinity;
             return false;
         }
 
@@ -697,7 +702,10 @@ namespace BDArmory.FX
                 return;
             }
         }
-
+        /*
+        /////////
+        // Debugging for Continuous rod/shaped charge orientation, unnecessary unless something gets changed at somepoint, so commented out for now.
+        ///////////
         void OnGUI()
         {
             if (HighLogic.LoadedSceneIsFlight && BDArmorySettings.DEBUG_LINES)
@@ -713,7 +721,7 @@ namespace BDArmory.FX
                             try
                             {
                                 Part part = explosionEventsPartsAdded[i];
-                                if (IsInLineOfSight(part, null, out hit, out distance, false))
+                                if (IsInLineOfSight(part, null, -1, out hit, out distance, false))
                                 {
                                     if (IsAngleAllowed(Direction, hit, explosionEventsPartsAdded[i]))
                                     {
@@ -738,7 +746,7 @@ namespace BDArmory.FX
                 }
             }
         }
-
+        */
 
         private void ExecuteBuildingBlastEvent(BuildingBlastHitEvent eventToExecute)
         {
@@ -881,7 +889,7 @@ namespace BDArmory.FX
                         }
                         var RA = part.FindModuleImplementing<ModuleReactiveArmor>();
 
-                        if (RA != null && !RA.NXRA && (ExplosionSource == ExplosionSourceType.Bullet || ExplosionSource == ExplosionSourceType.Rocket) && (Caliber > RA.sensitivity && realDistance < 0.1f)) //bullet/rocket hit
+                        if (RA != null && !RA.NXRA && (ExplosionSource == ExplosionSourceType.Bullet || ExplosionSource == ExplosionSourceType.Rocket) && (Caliber > RA.sensitivity && realDistance <= 0.1f)) //bullet/rocket hit
                         {
                             RA.UpdateSectionScales();
                         }
@@ -976,7 +984,7 @@ namespace BDArmory.FX
                             }
                             else
                             {
-                                if ((part == hitpart && ProjectileUtils.IsArmorPart(part)) || !ProjectileUtils.CalculateExplosiveArmorDamage(part, blastInfo.TotalPressure, SourceVesselName, eventToExecute.Hit, ExplosionSource, Range - realDistance)) //false = armor blowthrough or bullet detonating inside part
+                                if ((part == projectileHitPart && ProjectileUtils.IsArmorPart(part)) || !ProjectileUtils.CalculateExplosiveArmorDamage(part, blastInfo.TotalPressure, realDistance, SourceVesselName, eventToExecute.Hit, ExplosionSource, Range - realDistance)) //false = armor blowthrough or bullet detonating inside part
                                 {
                                     if (RA != null && !RA.NXRA) //blast wave triggers RA; detonate all remaining RA sections
                                     {
@@ -988,9 +996,9 @@ namespace BDArmory.FX
                                     else
                                     {
                                         damage = part.AddExplosiveDamage(blastInfo.Damage, Caliber, ExplosionSource, dmgMult);
-                                        if (part == hitpart && ProjectileUtils.IsArmorPart(part)) //deal armor damage to armor panel, since we didn't do that earlier
+                                        if (part == projectileHitPart && ProjectileUtils.IsArmorPart(part)) //deal armor damage to armor panel, since we didn't do that earlier
                                         {
-                                            ProjectileUtils.CalculateExplosiveArmorDamage(part, blastInfo.TotalPressure, SourceVesselName, eventToExecute.Hit, ExplosionSource, Range - realDistance);
+                                            ProjectileUtils.CalculateExplosiveArmorDamage(part, blastInfo.TotalPressure, realDistance, SourceVesselName, eventToExecute.Hit, ExplosionSource, Range - realDistance);
                                         }
                                         penetrationFactor = damage / 10; //closer to the explosion/greater magnitude of the explosion at point blank, the greater the blowthrough
                                         if (float.IsNaN(damage)) Debug.LogError("DEBUG NaN damage!");
@@ -1132,7 +1140,7 @@ namespace BDArmory.FX
             eFx.ProjMass = projectilemass;
             eFx.CASEClamp = caseLimiter;
             eFx.dmgMult = dmgMutator;
-            eFx.hitpart = Hitpart;
+            eFx.projectileHitPart = Hitpart;
             eFx.pEmitters = newExplosion.GetComponentsInChildren<KSPParticleEmitter>();
             eFx.audioSource = newExplosion.GetComponent<AudioSource>();
             eFx.SoundPath = soundPath;

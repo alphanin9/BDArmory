@@ -1,9 +1,12 @@
-﻿IMPROVEMENTS / FIXES
+﻿v1.5.9.0
+IMPROVEMENTS / FIXES
 - General:
 	- Blacklist the PotatoRoid due to it not having a valid prefab (they get procedurally generated) and causing NREs.
 	- Add try-catch around setting the gear action group due to the FSM sometimes breaking it and breaking pilot initialisation.
 	- Remove HP rounding and lower HP limit for MM-patched parts. Apply health modifier after applying rounding and lower HP limit for non-MM-patched parts.
-	- Add Infinite Propellant Gamemode toggle to BDA settings menu.
+	- Add Infinite Propellant and Infinite Electricity Gamemode toggles to BDA settings menu.
+	- Some minor debug message cleanup.
+	- Updated German localisation from EzBro.
 	- Add Vessel Mover functionality directly in BDA:
 		- Spawning:
 			- Choice of classic or custom vessel selection:
@@ -23,13 +26,14 @@
 			- Movement and rotation have a ramping up period to allow for fine adjustments.
 			- Movement automatically maintains altitude AGL but will adjust to avoid buildings and other craft.
 			- Movement coordinates are relative to the local coordinate frame with forward aligning with the camera. In map mode, forward is aligned with north.
-			- Tab jumps to preset altitudes (50km, 10km, 1km, 100m, 10m / minimum safe), 'x' jumps to the minimum safe altitude, other keybinds are the same as for the VesselMover mod (see the help button).
+			- Tab/Shift+Tab jumps to preset altitudes (50km, 10km, 1km, 100m, 10m / minimum safe), 'x' jumps to the minimum safe altitude, other keybinds are the same as for the VesselMover mod (see the help button).
 			- Vessels are lowered to the terrain and then eased in for up to 10s to allow them to settle.
 			- Vessels can be dropped.
 			- Option for setting the minimum lowering speed.
 			- Options for enabling brakes/SAS when lowered.
 			- Option for placing vessels on terrain below water (also affects terrain following while moving).
 			- Option for placement-lowering (jump to safe height, then lower the rest of the way).
+			- Option for not worrying about colliding with stuff (for getting really close to things for screenshots).
 			- Movement indicator scales with the vessel's radius (+2m).
 		- Movement and spawning don't require the active vessel to be landed.
 		- Includes a button to recover the active vessel (i.e., remove it) from flight.
@@ -45,13 +49,26 @@
 	- Fix issues with wing stacking calculation. Calculation now returns ratio of non-separated vertically stacked lift area to total lift area (capped at 100%). Wings spaced sufficiently apart will not contribute to the stacking value.
 	- Add option "Camera Switch: Incl. Missiles" to switch to and follow a missile fired by the active vessel until it explodes or misses (requested from FJRT, requires CameraTools v1.27.0 for optimal behaviour).
 	- Add whitelist option for guns/rockets/lasers to report hits in the competition marquee.
+	- Fix manual aim assist UI placement for fixed weapons.
 - AI / WM:
 	- AI will start evading missiles once the missile engine activates instead of waiting for 1 second after launch.
-	- When avoiding terrain and roll is inverted by more than 30°, reverse the roll target so that terrain avoidance is done while fully inverted and enable Aiming steer mode for more yaw control.
+	- When orbiting, adjust altitude for terrain variation when below 1000m and account for terrain in the way when below 500m.
+	- Remove the 'premature dive fix', which causes weird flight behaviour when flying inverted.
+	- Terrain avoidance improvements:
+		- When avoiding terrain and roll is inverted by more than the critical angle (default 120°), reverse the roll target so that terrain avoidance is done while fully inverted and enable Aiming steer mode for more yaw control.
+		- Remove the terrain avoidance cool-down period for faster recovery after avoiding terrain.
+		- Restrict the avoidance radius (default is twice the "radius" of the vessel) to the min altitude to allow cruising at min altitude despite without triggering terrain avoidance.
+		- Include all detected colliders in the terrain avoidance path and use a weighted average of normals to determine the appropriate terrain avoidance direction to fly (this helps with avoiding buildings).
+		- Remove the secondary raycast for upcoming terrain as it doesn't seem necessary and is doubtful it was helping.
+		- Adjust the max deflection for avoiding terrain to be based on the maxAoA clamped to within 45° and 70°.
 - Armor / Materials:
 	- Steel Hull Material melting point increased.
+	- Fix issue with armor panels potentially spalling away more than the entire volume of the plate and getting instantly deleted.
 - Countermeasures:
 	- Add selection priority to countermeasures to allow staggering of dropping countermeasures — higher priority CM dispensers trigger first.
+- GameModes:
+	- Add ability to disable cornering multiplier when using space hacks by setting it to 0. 
+	- Space Friction no longer applied to root part at the position of the CoM; large craft whould have an easier time turning now.
 - Weapons:
 	- Weapon burst length/fire angle overrides now respect symmetry.
 	- Fix heatseeker missiles fired from relaodable rails occasionally losing lock on firing.
@@ -59,11 +76,21 @@
 	- Fix NRE when firing Modular Missiles and Missile Icons are enabled.
 	- Modular Missiles will use RCS when fired in space.
 	- Heatseekers now target the hottest part on a craft, not the CoM.
+	- Fix HE beehive ammo submunitions not exploding on hit.
+	- Re-add HE ammo option to Oerlikon Millennium turret.
+	- Fix some issues with Explosion damage calcs, HE damage is now consistant regardless of hit location.
+	- Fix ammo count in WM GUI for reloadable missiles.
+	- AI will now properly respect per-missile engage range when selecting and firing missiles of the same type.
 - Competition:
 	- Add toggle for setting maxAltitude and GM Kill limits to ASL or AGL.
 	- Add Kill timer for GM Altitude to give violators a chance to get back to safe altitude instead of immediate kill.
+	- Add customisable fields for the intra-team separation conditions when starting competitions (default: 800m + 100m per member) (FJRT request).
+	- Add a per-round PVP score parser.
+	- Fix accuracy calcs when using beehive ammo.
+	- Fix vessel spawn altitude if RWP slider is set but not the RWP toggle.
 - RWP:
 	- Fix issue causing the web API to not report scores.
+	- Tag heats run via the web API with competition, stage and heat numbers in the file names.
 
 v1.5.8.0
 IMPROVEMENTS / FIXES

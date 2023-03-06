@@ -28,6 +28,7 @@ namespace BDArmory.Control
 
         //weapons
         private List<IBDWeapon> weaponTypes = new List<IBDWeapon>();
+        private Dictionary<string, List<float>> weaponRanges = new Dictionary<string, List<float>>();
         public IBDWeapon[] weaponArray;
 
         // extension for feature_engagementenvelope: specific lists by weapon engagement type
@@ -976,10 +977,8 @@ namespace BDArmory.Control
             if (isArmed) audioSource.PlayOneShot(armOnSound);
             else audioSource.PlayOneShot(armOffSound);
         }
-
         [KSPField(isPersistant = false, guiActive = true, guiName = "#LOC_BDArmory_Weapon")]//Weapon
-        public string selectedWeaponString =
-            "None";
+        public string selectedWeaponString = "None";
 
         IBDWeapon sw;
 
@@ -1004,10 +1003,11 @@ namespace BDArmory.Control
                         if (weapon.Current.GetWeaponClass() == WeaponClasses.Missile || weapon.Current.GetWeaponClass() == WeaponClasses.Bomb || weapon.Current.GetWeaponClass() == WeaponClasses.SLW)
                         {
                             var msl = weapon.Current.GetPart().FindModuleImplementing<MissileLauncher>();
-                            if (msl != null)
-                                if (msl.launched || msl.HasFired) continue; //return first missile that is ready to fire
+                            if (msl == null) continue;
+                            if (msl.launched || msl.HasFired) continue; //return first missile that is ready to fire
+                            if (msl.GetEngageRange() != selectedWeaponsEngageRangeMax) continue;
+                            sw = weapon.Current;
                         }
-                        sw = weapon.Current;
                         break;
                     }
                 return sw;
@@ -1018,11 +1018,14 @@ namespace BDArmory.Control
                 previousSelectedWeapon = sw;
                 sw = value;
                 selectedWeaponString = GetWeaponName(value);
+                selectedWeaponsEngageRangeMax = GetWeaponRange(value);
                 UpdateSelectedWeaponState();
             }
         }
 
         IBDWeapon previousSelectedWeapon { get; set; }
+
+        public float selectedWeaponsEngageRangeMax { get; private set; } = 0;
 
         [KSPAction("Fire Missile")]
         public void AGFire(KSPActionParam param)
@@ -2753,6 +2756,7 @@ namespace BDArmory.Control
                             if (otherMissile.Current == null) continue;
                             if (otherMissile.Current == ml || otherMissile.Current.GetShortName() != ml.GetShortName() ||
                                 !CheckBombClearance(otherMissile.Current)) continue;
+                            if (otherMissile.Current.GetEngagementRangeMax() != selectedWeaponsEngageRangeMax) continue;
                             if (otherMissile.Current.launched) continue;
                             CurrentMissile = otherMissile.Current;
                             selectedWeapon = otherMissile.Current;
@@ -2906,11 +2910,22 @@ namespace BDArmory.Control
                 return weapon.GetShortName();
             }
         }
-
+        float GetWeaponRange(IBDWeapon weapon)
+        {
+            if (weapon == null)
+            {
+                return -1;
+            }
+            else
+            {
+                return weapon.GetEngageRange();
+            }
+        }
         public void UpdateList()
         {
             weaponsListNeedsUpdating = false;
             weaponTypes.Clear();
+            weaponRanges.Clear();
             // extension for feature_engagementenvelope: also clear engagement specific weapon lists
             weaponTypesAir.Clear();
             weaponTypesMissile.Clear();
@@ -2933,7 +2948,18 @@ namespace BDArmory.Control
                             if (weap.Current == null) continue;
                             if (weap.Current.GetShortName() == weaponName)
                             {
-                                alreadyAdded = true;
+                                if (weapon.Current.GetWeaponClass() == WeaponClasses.Missile || weapon.Current.GetWeaponClass() == WeaponClasses.Bomb || weapon.Current.GetWeaponClass() == WeaponClasses.SLW)
+                                {
+                                    float range = weapon.Current.GetPart().FindModuleImplementing<MissileBase>().engageRangeMax;
+
+                                    if (weaponRanges.TryGetValue(weaponName, out var registeredRanges))
+                                    {
+                                        if (registeredRanges.Contains(range))
+                                            alreadyAdded = true;
+                                    }
+                                }
+                                else
+                                    alreadyAdded = true;
                                 //break;
                             }
                         }
@@ -2945,9 +2971,9 @@ namespace BDArmory.Control
                     }
                     //dont add empty rocket pods
                     if (weapon.Current.GetWeaponClass() == WeaponClasses.Rocket &&
-                    (weapon.Current.GetPart().FindModuleImplementing<ModuleWeapon>().rocketPod && !weapon.Current.GetPart().FindModuleImplementing<ModuleWeapon>().externalAmmo) &&
-                    weapon.Current.GetPart().FindModuleImplementing<ModuleWeapon>().GetRocketResource().amount < 1
-                    && !BDArmorySettings.INFINITE_AMMO)
+                        (weapon.Current.GetPart().FindModuleImplementing<ModuleWeapon>().rocketPod && !weapon.Current.GetPart().FindModuleImplementing<ModuleWeapon>().externalAmmo) &&
+                        weapon.Current.GetPart().FindModuleImplementing<ModuleWeapon>().GetRocketResource().amount < 1
+                        && !BDArmorySettings.INFINITE_AMMO)
                     {
                         continue;
                     }
@@ -2960,8 +2986,18 @@ namespace BDArmory.Control
                     if (!alreadyAdded)
                     {
                         weaponTypes.Add(weapon.Current);
-                    }
+                        if (weapon.Current.GetWeaponClass() == WeaponClasses.Missile || weapon.Current.GetWeaponClass() == WeaponClasses.Bomb || weapon.Current.GetWeaponClass() == WeaponClasses.SLW)
+                        {
+                            float range = weapon.Current.GetPart().FindModuleImplementing<MissileBase>().engageRangeMax;
 
+                            if (weaponRanges.TryGetValue(weaponName, out var registeredRanges))
+                            {
+                                registeredRanges.Add(range);
+                            }
+                            else
+                                weaponRanges.Add(weaponName, new List<float> { range });
+                        }
+                    }
                     EngageableWeapon engageableWeapon = weapon.Current as EngageableWeapon;
 
                     if (engageableWeapon != null)
@@ -3016,12 +3052,10 @@ namespace BDArmory.Control
             if (vessel == null) return;
 
             weaponIndex = Mathf.Clamp(weaponIndex, 0, weaponArray.Length - 1);
-
             if (selectedWeapon == null || selectedWeapon.GetPart() == null || (selectedWeapon.GetPart().vessel != null && selectedWeapon.GetPart().vessel != vessel) ||
                 GetWeaponName(selectedWeapon) != GetWeaponName(weaponArray[weaponIndex]))
             {
                 selectedWeapon = weaponArray[weaponIndex];
-
                 if (vessel.isActiveVessel && Time.time - startTime > 1)
                 {
                     hasSingleFired = true;
@@ -3074,7 +3108,7 @@ namespace BDArmory.Control
             if (selectedWeapon != null && (selectedWeapon.GetWeaponClass() == WeaponClasses.Bomb || selectedWeapon.GetWeaponClass() == WeaponClasses.Missile || selectedWeapon.GetWeaponClass() == WeaponClasses.SLW))
             {
                 //Debug.Log("[BDArmory.MissileFire]: =====selected weapon: " + selectedWeapon.GetPart().name);
-                if (!CurrentMissile || CurrentMissile.GetPartName() != selectedWeapon.GetPartName())
+                if (!CurrentMissile || CurrentMissile.GetPartName() != selectedWeapon.GetPartName() || CurrentMissile.engageRangeMax != selectedWeaponsEngageRangeMax)
                 {
                     using (var Missile = VesselModuleRegistry.GetModules<MissileBase>(vessel).GetEnumerator())
                         while (Missile.MoveNext())
@@ -3082,6 +3116,7 @@ namespace BDArmory.Control
                             if (Missile.Current == null) continue;
                             if (Missile.Current.GetPartName() != selectedWeapon.GetPartName()) continue;
                             if (Missile.Current.launched) continue;
+                            if (Missile.Current.engageRangeMax != selectedWeaponsEngageRangeMax) continue;
                             CurrentMissile = Missile.Current;
                         }
                     //CurrentMissile = selectedWeapon.GetPart().FindModuleImplementing<MissileBase>();
@@ -3535,7 +3570,6 @@ namespace BDArmory.Control
                 index = 0;
             }
             weaponIndex = index;
-
             UpdateList();
 
             if (vessel.isActiveVessel && !guardMode)
@@ -3578,6 +3612,7 @@ namespace BDArmory.Control
                         {
                             if (weaponArray[weaponIndex].GetPart() == null || launcher.GetPartName() != weaponArray[weaponIndex].GetPartName()) continue;
                             if (launcher.launched) continue;
+                            if (launcher.engageRangeMax != selectedWeaponsEngageRangeMax) continue;
                         }
                         else
                         {
@@ -5322,7 +5357,7 @@ namespace BDArmory.Control
                 for (int i = 1; i < weaponArray.Length; i++)
                 {
                     weaponIndex = i;
-                    if (selectedWeapon.GetShortName() == weaponArray[weaponIndex].GetShortName())
+                    if (selectedWeapon.GetShortName() == weaponArray[weaponIndex].GetShortName() && targetWeapon.GetEngageRange() == weaponArray[weaponIndex].GetEngageRange())
                     {
                         break;
                     }
@@ -6622,14 +6657,16 @@ namespace BDArmory.Control
         }
 
         public bool outOfAmmo = false; // Indicator for being out of ammo.
-        public bool HasWeaponsAndAmmo(List<WeaponClasses> weaponClasses = null)
+        public bool hasWeapons = true; // Indicator for having weapons.
+        public bool HasWeaponsAndAmmo()
         { // Check if the vessel has both weapons and ammo for them. Optionally, restrict checks to a subset of the weapon classes.
-            if (outOfAmmo && !BDArmorySettings.INFINITE_AMMO) return false; // It's already been checked and found to be true, don't look again.
+            if (!hasWeapons || (outOfAmmo && !BDArmorySettings.INFINITE_AMMO && !BDArmorySettings.INFINITE_ORDINANCE)) return false; // It's already been checked and found to be false, don't look again.
             bool hasWeaponsAndAmmo = false;
+            hasWeapons = false;
             foreach (var weapon in VesselModuleRegistry.GetModules<IBDWeapon>(vessel))
             {
                 if (weapon == null) continue; // First entry is the "no weapon" option.
-                if (weaponClasses != null && !weaponClasses.Contains(weapon.GetWeaponClass())) continue; // Ignore weapon classes we're not interested in.
+                hasWeapons = true;
                 if (weapon.GetWeaponClass() == WeaponClasses.Gun || weapon.GetWeaponClass() == WeaponClasses.Rocket)
                 {
                     if (BDArmorySettings.INFINITE_AMMO || CheckAmmo((ModuleWeapon)weapon)) { hasWeaponsAndAmmo = true; break; } // If the gun has ammo or we're using infinite ammo, return true after cleaning up.
@@ -6641,17 +6678,16 @@ namespace BDArmory.Control
                 else { hasWeaponsAndAmmo = true; break; } // Other weapon types don't have ammo, or use electric charge, which could recharge.
             }
             outOfAmmo = !hasWeaponsAndAmmo; // Set outOfAmmo if we don't have any guns with compatible ammo.
-            if (BDArmorySettings.DEBUG_WEAPONS) Debug.Log($"[BDArmory.MissileFire]: {vessel.vesselName} has run out of ammo!");
+            if (BDArmorySettings.DEBUG_WEAPONS && outOfAmmo) Debug.Log($"[BDArmory.MissileFire]: {vessel.vesselName} has run out of ammo!");
             return hasWeaponsAndAmmo;
         }
 
-        public int CountWeapons(List<WeaponClasses> weaponClasses = null)
+        public int CountWeapons()
         { // Count number of weapons with ammo
             int countWeaponsAndAmmo = 0;
             foreach (var weapon in VesselModuleRegistry.GetModules<IBDWeapon>(vessel))
             {
                 if (weapon == null) continue; // First entry is the "no weapon" option.
-                if (weaponClasses != null && !weaponClasses.Contains(weapon.GetWeaponClass())) continue; // Ignore weapon classes we're not interested in.
                 if (weapon.GetWeaponClass() == WeaponClasses.Gun || weapon.GetWeaponClass() == WeaponClasses.Rocket || weapon.GetWeaponClass() == WeaponClasses.DefenseLaser)
                 {
                     if (weapon.GetShortName().EndsWith("Laser")) { countWeaponsAndAmmo++; continue; } // If it's a laser (counts as a gun) consider it as having ammo and count it, since electric charge can replenish.

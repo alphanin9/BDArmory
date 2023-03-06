@@ -36,6 +36,7 @@ namespace BDArmory.Competition
         // Competition flags and variables
         public CompetitionType competitionType = CompetitionType.FFA;
         public int CompetitionID; // time competition was started
+        public string competitionTag = "";
         public double competitionStartTime = -1;
         public double MutatorResetTime = -1;
         public double competitionPreStartTime = -1;
@@ -290,11 +291,11 @@ namespace BDArmory.Competition
             }
         }
 
-        public void StartCompetitionMode(float distance, bool startDespiteFailures = false)
+        public void StartCompetitionMode(float distance, bool startDespiteFailures = false, string tag="")
         {
             if (!competitionStarting)
             {
-                ResetCompetitionStuff();
+                ResetCompetitionStuff(tag);
                 Debug.Log("[BDArmory.BDACompetitionMode:" + CompetitionID.ToString() + "]: Starting Competition");
                 startCompetitionNow = false;
                 if (BDArmorySettings.GRAVITY_HACKS)
@@ -331,7 +332,7 @@ namespace BDArmory.Competition
         public void StopCompetition()
         {
             if (LoadedVesselSwitcher.Instance is not null) LoadedVesselSwitcher.Instance.ResetDeadVessels(); // Reset the dead vessels in the LVS so that the final corrected results are shown.
-            LogResults();
+            LogResults(tag:competitionTag);
             if (competitionIsActive && ContinuousSpawning.Instance.vesselsSpawningContinuously)
             {
                 SpawnUtils.CancelSpawning();
@@ -350,6 +351,7 @@ namespace BDArmory.Competition
             sequencedCompetitionStarting = false;
             competitionStartTime = -1;
             competitionType = CompetitionType.FFA;
+            competitionTag = "";
             if (PhysicsGlobals.GraviticForceMultiplier != 1)
             {
                 lastGravityMultiplier = 1f;
@@ -386,10 +388,11 @@ namespace BDArmory.Competition
             Debug.Log("[BDArmory.BDACompetitionMode:" + CompetitionID.ToString() + "]: Competition Started");
         }
 
-        public void ResetCompetitionStuff()
+        public void ResetCompetitionStuff(string tag="")
         {
             // reinitilize everything when the button get hit.
             CompetitionID = (int)DateTime.UtcNow.Subtract(new DateTime(2020, 1, 1)).TotalSeconds;
+            competitionTag = tag;
             VesselModuleRegistry.CleanRegistries();
             DoPreflightChecks();
             KillTimer.Clear();
@@ -703,7 +706,7 @@ namespace BDArmory.Competition
                             StopCompetition();
                             yield break;
                         }
-                        var teamDistance = 800f + 100f * pilots[leader.weaponManager.Team].Count;
+                        var teamDistance = BDArmorySettings.COMPETITION_INTRA_TEAM_SEPARATION_BASE + BDArmorySettings.COMPETITION_INTRA_TEAM_SEPARATION_PER_MEMBER * pilots[leader.weaponManager.Team].Count;
                         foreach (var pilot in pilots[leader.weaponManager.Team])
                             if (pilot != null
                                     && pilot.currentCommand == PilotCommands.Follow
@@ -1050,12 +1053,12 @@ namespace BDArmory.Competition
         public bool s4r1FiringRateUpdatedFromShotThisFrame = false;
         public bool s4r1FiringRateUpdatedFromHitThisFrame = false;
 
-        public void StartRapidDeployment(float distance)
+        public void StartRapidDeployment(float distance, string tag="")
         {
             if (!BDArmorySettings.RUNWAY_PROJECT) return;
             if (!sequencedCompetitionStarting)
             {
-                ResetCompetitionStuff();
+                ResetCompetitionStuff(tag);
                 Debug.Log("[BDArmory.BDACompetitionMode:" + CompetitionID.ToString() + "]: Starting Rapid Deployment ");
                 RemoveDebrisNow();
                 GameEvents.onVesselPartCountChanged.Add(OnVesselModified);
@@ -2621,7 +2624,7 @@ namespace BDArmory.Competition
                 var message = "Ending competition due to out-of-time.";
                 competitionStatus.Add(message);
                 Debug.Log($"[BDArmory.BDACompetitionMode:{CompetitionID.ToString()}]: " + message);
-                LogResults("due to out-of-time");
+                LogResults(message:"due to out-of-time", tag:competitionTag);
                 StopCompetition();
                 return;
             }

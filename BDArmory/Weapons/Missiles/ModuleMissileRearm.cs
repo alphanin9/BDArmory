@@ -56,6 +56,7 @@ UI_FloatRange(minValue = 1f, maxValue = 4, stepIncrement = 1f, scene = UI_Scene.
                             SpawnedMissile = CreatePart(partNode, offset > 0 ? (MissileTransform.position + MissileTransform.forward * offset) : MissileTransform.transform.position, MissileTransform.rotation, this.part);
                             ModuleMissileRearm MMR = SpawnedMissile.FindModuleImplementing<ModuleMissileRearm>();
                             if (MMR != null) part.RemoveModule(MMR);
+                            if (!BDArmorySettings.INFINITE_ORDINANCE) ammoCount--;
                             if (BDArmorySettings.DEBUG_MISSILES) Debug.Log("[BDArmory.ModuleMissileRearm] spawned " + SpawnedMissile.name + "; ammo remaining: " + ammoCount);
                             return;
                         }

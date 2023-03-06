@@ -147,7 +147,6 @@ namespace BDArmory.Radar
         {
             //1. baseSig = GetVesselRadarCrossSection
             TargetInfo ti = GetVesselRadarCrossSection(v);
-            if (ti == null) return null;
             //2. modifiedSig = GetVesselModifiedSignature(baseSig)    //ECM-jammers with rcs reduction effect; other rcs reductions (stealth)
             ti.radarRCSReducedSignature = ti.radarBaseSignature; //These are needed for Radar functions to work!
             ti.radarModifiedSignature = ti.radarBaseSignature;
@@ -166,15 +165,7 @@ namespace BDArmory.Radar
 
             if (ti == null)
             {
-                // add targetinfo to vessel
-                if (VesselModuleRegistry.GetMissileFire(v, true))
-                {
-                    ti = v.gameObject.AddComponent<TargetInfo>();
-                }
-                else
-                {
-                    return null;
-                }
+                ti = v.gameObject.AddComponent<TargetInfo>();
             }
 
             if (ti.isMissile)
@@ -794,7 +785,6 @@ namespace BDArmory.Radar
             Mathf.Clamp(lookDownAngle, 0, 90);      // result range:   0 .. +90
 
             float groundClutterMutiplier = Mathf.Lerp(1, clutterFactor, (lookDownAngle / 90));
-
             //additional ground clutter factor when target is landed/splashed:
             if (ti != null && (ti.isLandedOrSurfaceSplashed || ti.isSplashed))
                 groundClutterMutiplier *= clutterFactor;
@@ -1066,13 +1056,9 @@ namespace BDArmory.Radar
 
                         // get vessel's radar signature
                         TargetInfo ti = GetVesselRadarSignature(loadedvessels.Current);
-                        float signature;
-                        if (ti != null)
-                            signature = ti.radarModifiedSignature;
-                        else
-                            signature = 10;
-                        //do not multiply chaff factor here
-                        signature *= GetRadarGroundClutterModifier(radar.radarGroundClutterFactor, referenceTransform, position, loadedvessels.Current.CoM, ti);
+                        float signature = ti.radarModifiedSignature;
+                            //do not multiply chaff factor here
+                            signature *= GetRadarGroundClutterModifier(radar.radarGroundClutterFactor, referenceTransform, position, loadedvessels.Current.CoM, ti);
 
                         // evaluate range
                         float distance = (loadedvessels.Current.CoM - position).magnitude / 1000f;                                      //TODO: Performance! better if we could switch to sqrMagnitude...
@@ -1086,8 +1072,8 @@ namespace BDArmory.Radar
                                 //evaluate if we can lock/track such a signature at that range
                                 float minLockSig = radar.radarLockTrackCurve.Evaluate(distance);
 
-                                signature *= ti != null ? ti.radarLockbreakFactor : 1;    //multiply lockbreak factor from active ecm
-                                                                                          //do not multiply chaff factor here
+                                signature *= ti.radarLockbreakFactor;    //multiply lockbreak factor from active ecm
+                                                                         //do not multiply chaff factor here
                                 signature *= GetStandoffJammingModifier(radar.vessel, radar.weaponManager.Team, position, loadedvessels.Current, signature);
 
                                 if (signature >= minLockSig && RadarCanDetect(radar, signature, distance)) // Must be able to detect and lock to lock targets
@@ -1198,7 +1184,6 @@ namespace BDArmory.Radar
 
                 // get vessel's radar signature
                 TargetInfo ti = GetVesselRadarSignature(lockedVessel);
-                if (ti == null) return false;
                 float signature = ti.radarModifiedSignature;
                 signature *= GetRadarGroundClutterModifier(radar.radarGroundClutterFactor, radar.referenceTransform, ray.origin, lockedVessel.CoM, ti);
                 signature *= ti.radarLockbreakFactor;    //multiply lockbreak factor from active ecm
@@ -1275,8 +1260,7 @@ namespace BDArmory.Radar
                         TargetInfo tInfo = loadedvessels.Current.gameObject.GetComponent<TargetInfo>();
                         if (tInfo == null)
                         {
-                            if (VesselModuleRegistry.GetMissileFire(loadedvessels.Current))
-                                tInfo = loadedvessels.Current.gameObject.AddComponent<TargetInfo>();
+                            tInfo = loadedvessels.Current.gameObject.AddComponent<TargetInfo>();
                         }
 
                         IRSig = BDATargetManager.GetVesselHeatSignature(loadedvessels.Current, irst.referenceTransform.position, 1f, irst.TempSensitivityCurve);

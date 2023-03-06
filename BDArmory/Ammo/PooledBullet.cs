@@ -282,7 +282,6 @@ namespace BDArmory.Bullets
             if (this.sourceVessel)
             {
                 sourceVesselName = sourceVessel.GetName(); // Set the source vessel name as the vessel might have changed its name or died by the time the bullet hits.
-                BDACompetitionMode.Instance.Scores.RegisterShot(sourceVesselName);
             }
             else
             {
@@ -523,6 +522,7 @@ namespace BDArmory.Bullets
             hasPenetrated = true;
             hasDetonated = false;
             hasRicocheted = false;
+            CurrentPart = null;
             //penTicker = 0;
             currPosition = transform.position;
             allHits.Clear();
@@ -1351,8 +1351,8 @@ namespace BDArmory.Bullets
                 Debug.Log("[BDArmory.PooledBullet] Beehive round not configured with subMunitionType!");
                 return;
             }
-            string fuze = subMunitionType.fuzeType;
-            fuze.ToLower();
+            string fuze = subMunitionType.fuzeType.ToLower();
+
             BulletFuzeTypes sFuze;
             switch (fuze)
             {
@@ -1381,6 +1381,8 @@ namespace BDArmory.Bullets
                     sFuze = PooledBullet.BulletFuzeTypes.None;
                     break;
             }
+            if (BDArmorySettings.DEBUG_WEAPONS)
+                Debug.Log("[BDArmory.PooledBullet]: Beehive Detonation: parsing submunition fuze: " + fuze + ", index: " + sFuze);
             for (int s = 0; s < subMunitionType.subProjectileCount; s++)
             {
                 GameObject Bullet = ModuleWeapon.bulletPool.GetPooledObject();
@@ -1417,8 +1419,7 @@ namespace BDArmory.Bullets
                     pBullet.explModelPath = explModelPath;
                     pBullet.explSoundPath = explSoundPath;
                     pBullet.tntMass = subMunitionType.tntMass;
-                    string HEtype = subMunitionType.explosive;
-                    HEtype.ToLower();
+                    string HEtype = subMunitionType.explosive.ToLower();
                     switch (HEtype)
                     {
                         case "standard":
@@ -1597,7 +1598,14 @@ namespace BDArmory.Bullets
             ///////////////////////////////////////////////////////////////////////
             // High Explosive Detonation
             ///////////////////////////////////////////////////////////////////////
-            if (fuzeType == BulletFuzeTypes.None) return false;
+            if (fuzeType == BulletFuzeTypes.None)
+            {
+                if (BDArmorySettings.DEBUG_WEAPONS)
+                {
+                    Debug.Log($"[BDArmory.PooledBullet]: Bullet {bullet.DisplayName} attempted detonation, has improper fuze ({fuzeType}). Fix your bullet config.");
+                }
+                return false;
+            }
             if (hitPart == null || hitPart.vessel != sourceVessel)
             {
                 //if bullet hits and is HE, detonate and kill bullet
@@ -1610,20 +1618,24 @@ namespace BDArmory.Bullets
                     if ((fuzeType == BulletFuzeTypes.Timed || fuzeType == BulletFuzeTypes.Flak) || HEType == PooledBulletTypes.Shaped)
                     {
                         if (HEType != PooledBulletTypes.Slug)
-                            ExplosionFx.CreateExplosion(hit.point, GetExplosivePower(), explModelPath, explSoundPath, ExplosionSourceType.Bullet, caliber, null, sourceVesselName, null, HEType == PooledBulletTypes.Explosive ? default : ray.direction, -1, false, bulletMass, -1, dmgMult, HEType == PooledBulletTypes.Shaped ? "shapedcharge" : "standard", null, HEType == PooledBulletTypes.Shaped ? apBulletMod : 1f, ProjectileUtils.isReportingWeapon(sourceWeapon) ? (float)DistanceTraveled : -1);
+                            ExplosionFx.CreateExplosion(hit.point, GetExplosivePower(), explModelPath, explSoundPath, ExplosionSourceType.Bullet, caliber, null, sourceVesselName, null, HEType == PooledBulletTypes.Explosive ? default : ray.direction, -1, false, bulletMass, -1, dmgMult, HEType == PooledBulletTypes.Shaped ? "shapedcharge" : "standard", hitPart, HEType == PooledBulletTypes.Shaped ? apBulletMod : 1f, ProjectileUtils.isReportingWeapon(sourceWeapon) ? (float)DistanceTraveled : -1);
                         if (nuclear)
                             NukeFX.CreateExplosion(currPosition, ExplosionSourceType.Bullet, sourceVesselName, bullet.DisplayName, 0, tntMass * 200, tntMass, tntMass, EMP, blastSoundPath, flashModelPath, shockModelPath, blastModelPath, plumeModelPath, debrisModelPath, "", "");
                     }
                     else
                     {
                         if (HEType != PooledBulletTypes.Slug)
-                            ExplosionFx.CreateExplosion(hit.point - (ray.direction * 0.1f), GetExplosivePower(), explModelPath, explSoundPath, ExplosionSourceType.Bullet, caliber, null, sourceVesselName, null, HEType == PooledBulletTypes.Explosive ? default : ray.direction, -1, false, bulletMass, -1, dmgMult, HEType == PooledBulletTypes.Shaped ? "shapedcharge" : "standard", penetratingHit ? hitPart : null, HEType == PooledBulletTypes.Shaped ? apBulletMod : 1f, ProjectileUtils.isReportingWeapon(sourceWeapon) ? (float)DistanceTraveled : -1);
+                            ExplosionFx.CreateExplosion(hit.point - (ray.direction * 0.1f), GetExplosivePower(), explModelPath, explSoundPath, ExplosionSourceType.Bullet, caliber, null, sourceVesselName, null, HEType == PooledBulletTypes.Explosive ? default : ray.direction, -1, false, bulletMass, -1, dmgMult, HEType == PooledBulletTypes.Shaped ? "shapedcharge" : "standard", hitPart, HEType == PooledBulletTypes.Shaped ? apBulletMod : 1f, ProjectileUtils.isReportingWeapon(sourceWeapon) ? (float)DistanceTraveled : -1);
                         if (nuclear)
                             NukeFX.CreateExplosion(currPosition, ExplosionSourceType.Bullet, sourceVesselName, bullet.DisplayName, 0, tntMass * 200, tntMass, tntMass, EMP, blastSoundPath, flashModelPath, shockModelPath, blastModelPath, plumeModelPath, debrisModelPath, "", "");
                     }
                     KillBullet();
                     hasDetonated = true;
                     return true;
+                }
+                if (BDArmorySettings.DEBUG_WEAPONS)
+                {
+                    Debug.Log($"[BDArmory.PooledBullet]: Bullet {bullet.DisplayName} attempted detonation, has no tntmass amount ({tntMass}) or is a solid slug ({HEType}). Fix your bullet config.");
                 }
             }
             return false;
@@ -1657,7 +1669,7 @@ namespace BDArmory.Bullets
             {
                 if (ProjectileUtils.isReportingWeapon(sourceWeapon) && BDACompetitionMode.Instance.competitionIsActive)
                 {
-                    string msg = $"{partsHit[0].vessel.GetName()} was nailed by {sourceVesselName}'s {sourceWeapon.partInfo.title} at {initialHitDistance:F3}, damaging {partsHit.Count} parts.";
+                    string msg = $"{partsHit[0].vessel.GetName()} was nailed by {sourceVesselName}'s {sourceWeapon.partInfo.title} at {initialHitDistance:F3}m, damaging {partsHit.Count} parts.";
                     //string message = $"{partsHit[0].vessel.GetName()} was nailed by {sourceVesselName}'s {bullet.DisplayName} at {initialHitDistance:F3}, damaging {partsHit.Count} parts.";
                     BDACompetitionMode.Instance.competitionStatus.Add(msg);
                 }

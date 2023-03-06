@@ -83,7 +83,7 @@ namespace BDArmory.Competition.VesselMover
 
         void LateUpdate()
         {
-            if (state == State.Moving && !MapView.MapIsEnabled)
+            if (state == State.Moving && !MapView.MapIsEnabled && BDArmorySetup.GAME_UI_ENABLED)
             {
                 moveIndicator.enabled = true;
                 DrawMovingIndicator();
@@ -98,6 +98,7 @@ namespace BDArmory.Competition.VesselMover
         bool translating = false;
         bool rotating = false;
         bool jump = false;
+        bool jumpDirection = false; // false = down, true = up
         bool reset = false;
         bool autoLevelPlane = false;
         bool autoLevelRocket = false;
@@ -113,7 +114,10 @@ namespace BDArmory.Competition.VesselMover
             if (GameSettings.THROTTLE_CUTOFF.GetKeyDown()) // Reset altitude to base.
             { reset = true; }
             else if (Input.GetKeyDown(KeyCode.Tab)) // Jump to next reference altitude.
-            { jump = true; }
+            {
+                jump = true;
+                jumpDirection = GameSettings.THROTTLE_UP.GetKey();
+            }
             else if (GameSettings.THROTTLE_UP.GetKey()) // Increase altitude.
             {
                 positionAdjustment.z = 1f;
@@ -320,8 +324,17 @@ namespace BDArmory.Competition.VesselMover
                     {
                         var baseAltitude = 2f * vessel.GetRadius();
                         var safeAltitude = SafeAltitude(vessel, lowerBound);
-                        var jumpToAltitude = safeAltitude < 1.1f * baseAltitude ? jumpToAltitudes.Last() : jumpToAltitudes.Where(a => a < 0.95f * safeAltitude).LastOrDefault();
-                        if (jumpToAltitude < 2f * baseAltitude) jumpToAltitude = baseAltitude;
+                        var jumpToAltitude = baseAltitude;
+                        if (jumpDirection) // Jump up
+                        {
+                            jumpToAltitude = jumpToAltitudes.Where(a => a > 1.05f * safeAltitude && a > 2f * baseAltitude).Select(a => Mathf.Max(a, baseAltitude)).FirstOrDefault();
+                            if (jumpToAltitude < baseAltitude) jumpToAltitude = baseAltitude;
+                        }
+                        else // Jump down
+                        {
+                            jumpToAltitude = safeAltitude < 1.1f * baseAltitude ? jumpToAltitudes.Last() : jumpToAltitudes.Where(a => a < 0.95f * safeAltitude).LastOrDefault();
+                            if (jumpToAltitude < 2f * baseAltitude) jumpToAltitude = baseAltitude;
+                        }
                         if (BDArmorySettings.DEBUG_SPAWNING) Debug.Log($"[BDArmory.VesselMover]: Jumping to altitude {jumpToAltitude}m (safeAlt: {safeAltitude}, baseAlt: {baseAltitude})");
                         up = (vessel.transform.position - FlightGlobals.currentMainBody.transform.position).normalized;
                         position += (jumpToAltitude - safeAltitude) * up;
@@ -517,6 +530,7 @@ namespace BDArmory.Competition.VesselMover
         float SafeAltitude(Vessel vessel, float lowerBound = -1f, Vector3 offset = default)
         {
             var altitude = RadarAltitude(vessel);
+            if (BDArmorySettings.VESSEL_MOVER_DONT_WORRY_ABOUT_COLLISIONS) return altitude;
             var position = vessel.transform.position + offset;
             var up = (position - FlightGlobals.currentMainBody.transform.position).normalized;
             var radius = vessel.GetRadius(up, vessel.GetBounds());
@@ -933,6 +947,7 @@ namespace BDArmory.Competition.VesselMover
                         GUILayout.BeginVertical();
                         BDArmorySettings.VESSEL_MOVER_ENABLE_BRAKES = GUILayout.Toggle(BDArmorySettings.VESSEL_MOVER_ENABLE_BRAKES, StringUtils.Localize("#LOC_BDArmory_VesselMover_EnableBrakes"));
                         BDArmorySettings.VESSEL_MOVER_LOWER_FAST = GUILayout.Toggle(BDArmorySettings.VESSEL_MOVER_LOWER_FAST, StringUtils.Localize("#LOC_BDArmory_VesselMover_LowerFast"));
+                        BDArmorySettings.VESSEL_MOVER_DONT_WORRY_ABOUT_COLLISIONS = GUILayout.Toggle(BDArmorySettings.VESSEL_MOVER_DONT_WORRY_ABOUT_COLLISIONS, StringUtils.Localize("#LOC_BDArmory_VesselMover_DontWorryAboutCollisions"));
                         GUILayout.EndVertical();
                         GUILayout.BeginVertical();
                         BDArmorySettings.VESSEL_MOVER_ENABLE_SAS = GUILayout.Toggle(BDArmorySettings.VESSEL_MOVER_ENABLE_SAS, StringUtils.Localize("#LOC_BDArmory_VesselMover_EnableSAS"));
@@ -951,15 +966,15 @@ namespace BDArmory.Competition.VesselMover
                         if (helpShowing)
                         {
                             GUILayout.BeginVertical();
-                            GUILayout.Label($"Movement: {GameSettings.PITCH_DOWN.primary} {GameSettings.PITCH_UP.primary} {GameSettings.YAW_LEFT.primary} {GameSettings.YAW_RIGHT.primary}");
-                            GUILayout.Label($"Roll: {GameSettings.ROLL_LEFT.primary} {GameSettings.ROLL_RIGHT.primary}");
-                            GUILayout.Label($"Pitch: {GameSettings.TRANSLATE_DOWN.primary} {GameSettings.TRANSLATE_UP.primary}");
-                            GUILayout.Label($"Yaw: {GameSettings.TRANSLATE_LEFT.primary} {GameSettings.TRANSLATE_RIGHT.primary}");
-                            GUILayout.Label($"Auto rotate rocket: {GameSettings.TRANSLATE_BACK.primary}");
-                            GUILayout.Label($"Auto rotate plane: {GameSettings.TRANSLATE_FWD.primary}");
-                            GUILayout.Label($"Cycle preset altitudes: Tab");
-                            GUILayout.Label($"Reset Altitude: {GameSettings.THROTTLE_CUTOFF.primary}");
-                            GUILayout.Label($"Adjust Altitude: {GameSettings.THROTTLE_UP.primary} {GameSettings.THROTTLE_DOWN.primary}");
+                            GUILayout.Label($"{StringUtils.Localize("#LOC_BDArmory_VesselMover_Help_Movement")}: {GameSettings.PITCH_DOWN.primary}, {GameSettings.PITCH_UP.primary}, {GameSettings.YAW_LEFT.primary}, {GameSettings.YAW_RIGHT.primary}");
+                            GUILayout.Label($"{StringUtils.Localize("#LOC_BDArmory_VesselMover_Help_Roll")}: {GameSettings.ROLL_LEFT.primary}, {GameSettings.ROLL_RIGHT.primary}");
+                            GUILayout.Label($"{StringUtils.Localize("#LOC_BDArmory_VesselMover_Help_Pitch")}: {GameSettings.TRANSLATE_DOWN.primary}, {GameSettings.TRANSLATE_UP.primary}");
+                            GUILayout.Label($"{StringUtils.Localize("#LOC_BDArmory_VesselMover_Help_Yaw")}: {GameSettings.TRANSLATE_LEFT.primary}, {GameSettings.TRANSLATE_RIGHT.primary}");
+                            GUILayout.Label($"{StringUtils.Localize("#LOC_BDArmory_VesselMover_Help_AutoRotateRocket")}: {GameSettings.TRANSLATE_BACK.primary}");
+                            GUILayout.Label($"{StringUtils.Localize("#LOC_BDArmory_VesselMover_Help_AutoRotatePlane")}: {GameSettings.TRANSLATE_FWD.primary}");
+                            GUILayout.Label(StringUtils.Localize("#LOC_BDArmory_VesselMover_Help_CycleAltitudes"));
+                            GUILayout.Label($"{StringUtils.Localize("#LOC_BDArmory_VesselMover_Help_ResetAltitude")}: {GameSettings.THROTTLE_CUTOFF.primary}");
+                            GUILayout.Label($"{StringUtils.Localize("#LOC_BDArmory_VesselMover_Help_AdjustAltitude")}: {GameSettings.THROTTLE_UP.primary}, {GameSettings.THROTTLE_DOWN.primary}");
                             GUILayout.EndVertical();
                         }
                         break;
@@ -1068,7 +1083,7 @@ namespace BDArmory.Competition.VesselMover
                         else { selectedVesselURL = vesselURL; }
                         vesselSelectionTimer = Time.realtimeSinceStartup;
                     }
-                    GUILayout.Label($"{StringUtils.Localize("#LOC_BDArmory_Settings_CustomSpawnTemplate_Parts")}: {vesselInfo.partCount},  {StringUtils.Localize("#LOC_BDArmory_Settings_CustomSpawnTemplate_Mass")}: {(vesselInfo.totalMass < 1000f ? $"{vesselInfo.totalMass:G3}t" : $"{vesselInfo.totalMass / 1000f:G3}kt")}\nCrew count: {(craftBrowser.crewCounts.ContainsKey(vesselURL) ? craftBrowser.crewCounts[vesselURL] : "unknown")}\n{(vesselInfo.UnavailableShipParts.Count > 0 ? $"<b><color=red>{StringUtils.Localize("#LOC_BDArmory_Settings_CustomSpawnTemplate_InvalidParts")}</color></b>" : $"{StringUtils.Localize("#LOC_BDArmory_Settings_CustomSpawnTemplate_Version")}: {(vesselInfo.compatibility == VersionCompareResult.COMPATIBLE ? $"{vesselInfo.version}" : $"<color=red>{vesselInfo.version}</color>")}{(vesselInfo.UnavailableShipPartModules.Count > 0 ? $"  <color=red>{StringUtils.Localize("#LOC_BDArmory_Settings_CustomSpawnTemplate_UnknownModules")}</color>" : "")}")}", CustomCraftBrowserDialog.vesselInfoStyle);
+                    GUILayout.Label($"{StringUtils.Localize("#LOC_BDArmory_Settings_CustomSpawnTemplate_Parts")}: {vesselInfo.partCount},  {StringUtils.Localize("#LOC_BDArmory_Settings_CustomSpawnTemplate_Mass")}: {(vesselInfo.totalMass < 1000f ? $"{vesselInfo.totalMass:G3}t" : $"{vesselInfo.totalMass / 1000f:G3}kt")}\nCrew count: {(craftBrowser.crewCounts.ContainsKey(vesselURL) ? craftBrowser.crewCounts[vesselURL].ToString() : "unknown")}\n{(vesselInfo.UnavailableShipParts.Count > 0 ? $"<b><color=red>{StringUtils.Localize("#LOC_BDArmory_Settings_CustomSpawnTemplate_InvalidParts")}</color></b>" : $"{StringUtils.Localize("#LOC_BDArmory_Settings_CustomSpawnTemplate_Version")}: {(vesselInfo.compatibility == VersionCompareResult.COMPATIBLE ? $"{vesselInfo.version}" : $"<color=red>{vesselInfo.version}</color>")}{(vesselInfo.UnavailableShipPartModules.Count > 0 ? $"  <color=red>{StringUtils.Localize("#LOC_BDArmory_Settings_CustomSpawnTemplate_UnknownModules")}</color>" : "")}")}", CustomCraftBrowserDialog.vesselInfoStyle);
                     GUILayout.EndHorizontal();
                 }
             GUILayout.EndScrollView();

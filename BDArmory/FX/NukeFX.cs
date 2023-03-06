@@ -456,7 +456,7 @@ namespace BDArmory.FX
                         }
                         else
                         {
-                            if (!ProjectileUtils.CalculateExplosiveArmorDamage(part, blastImpulse, SourceVesselName, eventToExecute.Hit, ExplosionSource, thermalRadius - realDistance)) //false = armor blowthrough
+                            if (!ProjectileUtils.CalculateExplosiveArmorDamage(part, blastImpulse, realDistance, SourceVesselName, eventToExecute.Hit, ExplosionSource, thermalRadius - realDistance)) //false = armor blowthrough
                             {
                                 damage = part.AddExplosiveDamage(blastDamage, 1, ExplosionSource, 1);
                             }

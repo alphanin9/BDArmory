@@ -385,7 +385,6 @@ namespace BDArmory.Weapons.Missiles
                 tubesFired++;
                 launchesThisSalvo++;
                 missileSpawner.SpawnMissile(launchTransforms[m], offset);
-                if (!BDArmorySettings.INFINITE_ORDINANCE) missileSpawner.ammoCount--;
                 MissileLauncher ml = missileSpawner.SpawnedMissile.FindModuleImplementing<MissileLauncher>();
                 yield return new WaitUntilFixed(() => ml.SetupComplete); // Wait until missile fully initialized.
                 var tnt = VesselModuleRegistry.GetModule<BDExplosivePart>(vessel, true);
@@ -597,6 +596,7 @@ namespace BDArmory.Weapons.Missiles
                         if (BDArmorySettings.DEBUG_MISSILES) Debug.Log("[BDArmory.MultiMissileLauncher] all submunitions fired. Reloading");
                     }
             }
+            missileLauncher.GetMissileCount();
             if (LaunchThenDestroy)
             {
                 if (part != null)
@@ -622,7 +622,7 @@ namespace BDArmory.Weapons.Missiles
                     }
                 }
                 missileSalvo = null;
-            }
+            }           
         }
 
         public void SetupMissileDummyPool(string modelpath)

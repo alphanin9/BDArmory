@@ -384,6 +384,7 @@ namespace BDArmory.UI
 
                         { "turnRadiusTwiddleFactorMin", gameObject.AddComponent<NumericInputField>().Initialise(0, ActivePilot.turnRadiusTwiddleFactorMin, 0.1, 5) },
                         { "turnRadiusTwiddleFactorMax", gameObject.AddComponent<NumericInputField>().Initialise(0, ActivePilot.turnRadiusTwiddleFactorMax, 0.1, 5) },
+                        { "terrainAvoidanceCriticalAngle", gameObject.AddComponent<NumericInputField>().Initialise(0, ActivePilot.terrainAvoidanceCriticalAngle, 90f, 180f) },
                         { "waypointTerrainAvoidance", gameObject.AddComponent<NumericInputField>().Initialise(0, ActivePilot.waypointTerrainAvoidance, 0, 1) },
 
                         { "controlSurfaceLag", gameObject.AddComponent<NumericInputField>().Initialise(0, ActivePilot.controlSurfaceLag, 0, 0.2) },
@@ -2077,6 +2078,29 @@ namespace BDArmory.UI
                             if (contextTipsEnabled)
                             {
                                 GUI.Label(ContextLabelRect(leftIndent, ++gndLines), StringUtils.Localize("#LOC_BDArmory_AIWindow_terrainMax"), contextLabel);
+                            }
+                            #endregion
+
+                            #region Inverted Terrain Avoidance Critical Angle
+                            GUI.Label(SettinglabelRect(leftIndent, ++gndLines), $"{StringUtils.Localize("#LOC_BDArmory_AIWindow_InvertedTerrainAvoidanceCriticalAngle")}: {ActivePilot.terrainAvoidanceCriticalAngle:0}", Label);
+                            var oldTerrainAvoidanceCriticalAngle = ActivePilot.terrainAvoidanceCriticalAngle;
+                            if (!NumFieldsEnabled)
+                            {
+                                ActivePilot.terrainAvoidanceCriticalAngle = GUI.HorizontalSlider(SettingSliderRect(leftIndent, gndLines, contentWidth), ActivePilot.terrainAvoidanceCriticalAngle, 90f, 180f);
+                                ActivePilot.terrainAvoidanceCriticalAngle = Mathf.Round(ActivePilot.terrainAvoidanceCriticalAngle);
+                            }
+                            else
+                            {
+                                inputFields["terrainAvoidanceCriticalAngle"].tryParseValue(GUI.TextField(SettingTextRect(leftIndent, gndLines, contentWidth), inputFields["terrainAvoidanceCriticalAngle"].possibleValue, 6, inputFieldStyle));
+                                ActivePilot.terrainAvoidanceCriticalAngle = (float)inputFields["terrainAvoidanceCriticalAngle"].currentValue;
+                            }
+                            if (ActivePilot.terrainAvoidanceCriticalAngle != oldTerrainAvoidanceCriticalAngle)
+                            {
+                                ActivePilot.OnTerrainAvoidanceCriticalAngleChanged(null, null);
+                            }
+                            if (contextTipsEnabled)
+                            {
+                                GUI.Label(ContextLabelRect(leftIndent, ++gndLines), StringUtils.Localize("#LOC_BDArmory_AIWindow_InvertedTerrainAvoidanceCriticalAngleContext"), contextLabel);
                             }
                             #endregion
 
